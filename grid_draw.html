@@ -1,113 +1,195 @@
 <!DOCTYPE html>
 <html>
+<!--
+    preview page -> actual print page scales up
+    side by side ->
+    pic 1 | pic 2
+    ->hit print -> print cloned elements in different pages -> hide literally everything else
+    change "user canvas" to "picture canvas"
+-->
     <head>
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
         <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
         <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
         <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
-    </head>
-    <link rel="stylesheet" type="text/css" href='style.css'>
+        <link rel="stylesheet" type="text/css" href="style.css">
+    </head> 
     <body>
-        <div class="d-flex flex-column justify-content-center">
-            <div class="d-flex flex-row justify-content-around">
-                <div>
-                    <input type="file"
-                       id="user_picture"
-                       accept="image/png, image/jpeg">
-                </div>
-                <div>           
-                    <button class="btn btn-primary">Print</button>
-                </div>
-                <div>
-                    <label for="gridSizeControlRange">Grid Size</label>
-                    <input type="range" class="form-control-range" id="gridSizeControlRange">
-                </div>
-                <div>
-                    <select class="custom-select" id="orientationSelect">
-                        <option selected value="portait">Portrait</option>
-                        <option value="landscape">Landscape</option>
-                    </select>
-                </div>
+        <div class="d-print-none">
+        <div class="d-flex flex-row justify-content-around">
+            <div>
+                <input type="file"
+                   id="user_picture"
+                   accept="image/png, image/jpeg">
             </div>
-            <div class = "d-flex justify-content-center">Page 1</div>
-            <div class = "d-flex justify-content-center">
-                <canvas id = "user_canvas" width="400" height="400"></canvas>
+            <div>           
+                <button id="printButton" class="btn btn-primary">Print</button>
             </div>
-            <div class="pagebreak"></div>
-            <div class = "d-flex justify-content-center">Page 2</div>
-            <div class = "d-flex justify-content-center">
-                <canvas id = "blank_canvas" width="400" height="400"></canvas>
+            <div>
+                <label for="gridSizeControlRange"></label>
+                <input type="range" class="form-control-range" id="gridSizeControlRange" min=20 max=100>
+                <div id="gridSizeNumber"></div>
+            </div>
+        </div>
+        <div class = "d-flex justify-content-center">PRINT PREVIEW</div>
+        <div class="d-flex flex-row justify-content-around">
+            <div class="canvas_container">
+                <canvas id = "user_canvas"></canvas>
+            </div>
+            <div class="canvas_container">
+                <canvas id = "blank_canvas"></canvas>
+            </div>
+        </div>
+        </div>
+        <div id = "print_page">
+            <div class = "pagebreak d-flex justify-content-center">
+                <canvas id = "print_user_canvas"></canvas>
+            </div>
+            <div class = "pagebreak d-flex justify-content-center">
+                <canvas id = "print_blank_canvas"></canvas>                
             </div>
         </div>
     </body>
     <script type="text/javascript">
-var file_reader = new FileReader();
+//using the standard 8.5' x 11' size ratio for printer pages; does not account for margins and html header/footer that will have an effect when printing
+var page_width = 850;
+var page_height = 1100;
+//default size of each grid square
+var square_length = 100;
 
-var user_canvas = $("#user_canvas").get(0);
-var user_image = new Image();
-var blank_canvas = $("#blank_canvas").get(0);
+//the width/height that will be used when drawing the image with respect to the page; will probably not match actual image height/width
+var image_draw_width;
+var image_draw_height;
+//if length > width, image will be printed as portrait; otherwise image will be printed as landscape
+var portrait;
+var user_image;
 
-var square_length = 20;
+var blank_canvas;
+var user_canvas; 
+var file_reader;
 
-var orientation = "portrait";
 
 function init(){
-    user_image.src = "stravinsky.png";
+    user_image = new Image();
+    blank_canvas = $("#blank_canvas").get(0);
+    user_canvas = $("#user_canvas").get(0);
+    file_reader = new FileReader();
+
+    //match canvas sizes to expected page width/size
+    //rewrite this?
+    user_canvas.width = page_width;
+    user_canvas.height = page_height;
+    blank_canvas.width = page_width;
+    blank_canvas.height = page_height;
+    print_user_canvas.width = page_width;
+    print_user_canvas.height = page_height;
+    print_blank_canvas.width = page_width;
+    print_blank_canvas.height = page_height;
+
     user_image.onload = function() {
-        updateImage();      
+        updatePicture();
+        redraw();      
+    }
+    file_reader.onload = function() {
+        user_image.src = file_reader.result;
+    }
+
+    user_image.src = "stravinsky.png";
+}
+
+function redraw(){
+    //clear the canvases
+    var user_ctx = user_canvas.getContext("2d");
+    user_ctx.clearRect( 0, 0, user_ctx.canvas.width, user_ctx.canvas.height);
+    var blank_ctx = blank_canvas.getContext("2d");
+    blank_ctx.clearRect(0, 0, blank_ctx.canvas.width, blank_ctx.canvas.height);
+
+    draw_picture();
+    draw_grid(user_canvas);
+    draw_grid(blank_canvas);
+}
+
+function updatePicture(){
+    //determine whether the picture should be printed in portrait or landscape
+    if(user_image.height > user_image.width){
+        portrait = true;
+    } else {
+        portrait = false;
+    }
+    //if the height/width ratio of the image exceeds the height/width ratio of the page, the image will fill the length of the page
+    if(user_image.height / user_image.width > page_height/page_width){
+        image_draw_height = page_height;
+        image_draw_width = page_height / user_image.height * user_image.width;
+    //otherwise the image will fill the width of the page
+    } else {
+        image_draw_width = page_width;
+        image_draw_height = page_width / user_image.width * user_image.height;
     }
 }
 
-function updateImage(){
-    var ctx = user_canvas.getContext("2d");
-    ctx.clearRect( 0, 0, ctx.canvas.width, ctx.canvas.height);
-    if (orientation == "landscape"){
-        user_canvas.height = user_image.width;
-        user_canvas.width = user_image.height;
-        blank_canvas.height = user_image.width;
-        blank_canvas.width = user_image.height;
-        ctx.translate(user_canvas.width, 0);
-        ctx.rotate(90 * Math.PI / 180);
-        ctx.drawImage(user_image, 0, 0);
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
+function draw_picture(){
+    console.log("trying to draw picture");
+    var user_ctx = user_canvas.getContext("2d");
+    //draw as portrait
+    if(portrait){
+        //scale to size of "page"
+        user_ctx.drawImage(user_image, 0, 0, user_image.width, user_image.height, 0, 0, image_draw_width, image_draw_height);
+    //draw as landscape
     } else {
-        user_canvas.height = user_image.height;
-        user_canvas.width = user_image.width;
-        blank_canvas.height = user_image.height;
-        blank_canvas.width = user_image.width;
-        ctx.drawImage(user_image, 0, 0);
-    }
-    draw_grid(user_canvas);
-    draw_grid(blank_canvas); 
+        //rotate image, scale to size of "page"
+        user_ctx.translate(user_canvas.width, 0);
+        user_ctx.rotate(90 * Math.PI / 180);
+        user_ctx.drawImage(user_image, 0, 0, user_image.width, user_image.height, 0, 0, image_draw_height, image_draw_width);
+        user_ctx.setTransform(1, 0, 0, 1, 0, 0);   
+    } 
 }
 
 function draw_grid(canvas){
     var ctx = canvas.getContext("2d");
-    for(k = 0; k < canvas.height; k = k + square_length){
+    ctx.strokeStyle = '#000000';
+    for(var k = 0; k < image_draw_height; k = k + square_length){
         ctx.beginPath();
         ctx.moveTo(0, k);
-        ctx.lineTo(canvas.width, k);
+        ctx.lineTo(image_draw_width, k);
         ctx.stroke();
     }
-    for(j = 0; j < canvas.width; j = j + square_length){
+    for(var j = 0; j < image_draw_width; j = j + square_length){
         ctx.beginPath();
         ctx.moveTo(j, 0);
-        ctx.lineTo(j, canvas.height);
+        ctx.lineTo(j, image_draw_height);
         ctx.stroke();
     }
 }
 
+function prepare_for_print(){
+    print_blank_canvas = $("#print_blank_canvas").get(0);
+    print_user_canvas = $("#print_user_canvas").get(0);
+    //clear the hidden canvases
+    var print_user_ctx = print_user_canvas.getContext("2d");
+    print_user_ctx.clearRect( 0, 0, print_user_ctx.canvas.width, print_user_ctx.canvas.height);
+    var print_blank_ctx = print_blank_canvas.getContext("2d");
+    print_blank_ctx.clearRect(0, 0, print_blank_ctx.canvas.width, print_blank_ctx.canvas.height);
+    //copy the canvases
+    print_user_ctx.drawImage(user_canvas, 0, 0);
+    print_blank_ctx.drawImage(blank_canvas, 0, 0);
+}
+
 $("#user_picture").change(function( event ) {
-    file_reader.onload = function() {
-        user_image.src = file_reader.result;
-    }
     file_reader.readAsDataURL(this.files[0]);
 });
 
-$("#orientationSelect").change(function( event ) {
-    orientation = $(this).children("option:selected").val();
-    console.log(orientation);
-    updateImage();
+$("#gridSizeControlRange").on('input', function() {
+    $("#gridSizeNumber").html($(this).val());
+});
+
+$("#gridSizeControlRange").on('change', function() {
+    square_length = parseInt($(this).val());
+    redraw();
+});
+
+$("#printButton").on('click', function() {
+    prepare_for_print();
+    print();
 });
 
 init();
