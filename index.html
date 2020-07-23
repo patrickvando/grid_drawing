@@ -8,28 +8,39 @@
         <link rel="stylesheet" type="text/css" href="style.css">
     </head> 
     <body>
-        <div class="d-print-none">
-            <div class="d-flex justify-content-center align-items-center">
-                <div class="col-3 d-flex align-items-center">
+        <div class="d-print-none container-fluid">
+            <div class="row">
+                <div class="col-4 d-flex align-items-center justify-content-center">
                     <input type="file"
                        id="user_picture"
                        accept="image/png, image/jpeg">
                 </div>
-                <div class="col-3 d-flex align-items-center"  style="min-width: 400px">
-                        <label class = "mb-0 mx-5" for="gridSizeControlRange">GRID SIZE</label>
-                    <div>
-                        <input type="range" class="form-control-range" id="gridSizeControlRange">
+                <div class="col-4"  style="min-width: 400px">
+                    <div class="row d-flex justify-content-center">
+                        <div class="col-3">Grid Size</div>
+                        <div class="col-6">
+                            <input type="range" class="form-control-range" id="gridSizeControlRange">
+                        </div>
+                        <div class="col-3" id="gridSizeNumber">0</div>
                     </div>
-                    <div class="mx-5" id="gridSizeNumber">0</div>
+                    <div class="row d-flex justify-content-center">
+                        <div class="col-3">Page Ratio</div>
+                        <div class = "col-6">
+                            <input type="range" class="form-control-range" id="pageRatioControlRange" step=0.01>
+                        </div>
+                        <div class="col-3" id="pageRatioNumber">0</div>
+                    </div>
                 </div>
-                <div class="col-3 d-flex justify-content-center align-items-center">          
+                <div class="col-4 d-flex justify-content-center align-items-center">          
                     <button id="printButton" class="btn btn-primary">PRINT</button>
                 </div>
             </div>
-            <br>
-            <br>
-            <div class = "d-flex justify-content-center m-3"><u>PRINT PREVIEW</u></div>
-            <div class="d-flex flex-row justify-content-around">
+            <div class = "row">
+                <br>
+                <br>
+            </div>
+            <div class = "row justify-content-center"><u>PRINT PREVIEW</u></div>
+            <div class="row justify-content-around">
                 <div class="canvas_container">
                     <div class="d-flex justify-content-center">PAGE 1</div>
                     <canvas id = "user_canvas"></canvas>
@@ -109,7 +120,6 @@ function updatePicture(){
 }
 
 function draw_picture(){
-    console.log("trying to draw picture");
     var user_ctx = user_canvas.getContext("2d");
     //draw as portrait
     if(portrait){
@@ -127,7 +137,6 @@ function draw_picture(){
 
 function draw_grid(canvas){
     var ctx = canvas.getContext("2d");
-    console.log(canvas.width, page_width, square_length);
     ctx.strokeStyle = '#000000';
     for(var k = 0; k < page_height; k = k + square_length){
         ctx.beginPath();
@@ -156,6 +165,14 @@ function prepare_for_print(){
     print_blank_ctx.drawImage(blank_canvas, 0, 0);
 }
 
+function resize_canvases(){
+    var canvases = [user_canvas, blank_canvas, print_user_canvas, print_blank_canvas];
+    for (var k = 0; k < canvases.length; k++){
+        canvases[k].width = page_width;
+        canvases[k].height = page_height;
+    }
+}
+
 $("#user_picture").change(function( event ) {
     file_reader.readAsDataURL(this.files[0]);
 });
@@ -164,9 +181,24 @@ $("#gridSizeControlRange").on('input', function() {
     $("#gridSizeNumber").html($(this).val());
 });
 
+$("#pageRatioControlRange").on('input', function() {
+    $("#pageRatioNumber").html($(this).val());
+});
+
 $("#gridSizeControlRange").on('change', function() {
     square_length = parseInt($(this).val());
     redraw();
+});
+
+$("#pageRatioControlRange").on('change', function() {
+    // console.log(page_width, page_height);
+    var page_ratio = parseFloat($(this).val());
+    page_width = 800;
+    page_height = Math.floor(page_ratio * page_width);
+    resize_canvases();
+    updatePicture();
+    redraw();
+    console.log("changed");
 });
 
 $("#printButton").on('click', function() {
@@ -181,22 +213,19 @@ $(document).ready(function() {
        "min" : 20,
        "value" : page_width / 4,
     });
+    $("#pageRatioControlRange").attr({
+       "max" : 1.5,
+       "min" : 1,
+       "value" : 1.43,
+    });
     $("#gridSizeNumber").html($("#gridSizeControlRange").val());
+    $("#pageRatioNumber").html($("#pageRatioControlRange").val());
     user_image = new Image();
     blank_canvas = $("#blank_canvas").get(0);
     user_canvas = $("#user_canvas").get(0);
     file_reader = new FileReader();
 
-    //match canvas sizes to expected page width/size
-    //rewrite this? clumsy
-    user_canvas.width = page_width;
-    user_canvas.height = page_height;
-    blank_canvas.width = page_width;
-    blank_canvas.height = page_height;
-    print_user_canvas.width = page_width;
-    print_user_canvas.height = page_height;
-    print_blank_canvas.width = page_width;
-    print_blank_canvas.height = page_height;
+    resize_canvases();
 
     square_length = parseInt($("#gridSizeControlRange").val());
 
@@ -215,22 +244,4 @@ $(document).ready(function() {
     user_image.src = "stravinsky.png";
 });
     </script>
-
-    <!--
-
-        const readURL = file => {
-    return new Promise((res, rej) => {
-        const reader = new FileReader();
-        reader.onload = e => res(e.target.result);
-        reader.onerror = e => rej(e);
-        reader.readAsDataURL(file);
-    });
-};
-
-const preview = async event => {
-    const file = event.target.files[0];
-    const url = await readURL(file);
-    img.src = url;
-};
--->
 </html>
