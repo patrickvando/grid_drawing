@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+        <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+        <link rel="stylesheet" type="text/css" href="style.css">
+    </head> 
+    <body>
+        <div class="d-print-none container-fluid">
+            <div class="row">
+                <div class="col-4 d-flex align-items-center justify-content-center">
+                    <input type="file"
+                       id="user_picture"
+                       accept="image/png, image/jpeg">
+                </div>
+                <div class="col-4"  style="min-width: 400px">
+                    <div class="row d-flex justify-content-center">
+                        <div class="col-3">Grid Size</div>
+                        <div class="col-6">
+                            <input type="range" class="form-control-range" id="gridSizeControlRange">
+                        </div>
+                        <div class="col-3" id="gridSizeNumber">0</div>
+                    </div>
+                    <div class="row d-flex justify-content-center">
+                        <div class="col-3">Page Ratio</div>
+                        <div class = "col-6">
+                            <input type="range" class="form-control-range" id="pageRatioControlRange" step=0.01>
+                        </div>
+                        <div class="col-3" id="pageRatioNumber">0</div>
+                    </div>
+                </div>
+                <div class="col-4 d-flex justify-content-center align-items-center">          
+                    <button id="printButton" class="btn btn-primary">PRINT</button>
+                </div>
+            </div>
+            <div class = "row">
+                <br>
+                <br>
+            </div>
+            <div class = "row justify-content-center"><u>PRINT PREVIEW</u></div>
+            <div class="row justify-content-around">
+                <div class="canvas_container">
+                    <div class="d-flex justify-content-center">PAGE 1</div>
+                    <canvas id = "user_canvas"></canvas>
+                </div>
+                <div class="canvas_container">
+                    <div class="d-flex justify-content-center">PAGE 2</div>
+                    <canvas id = "blank_canvas"></canvas>
+                </div>
+            </div>
+        </div>
+        <div id = "print_page">
+            <div class = "pagebreak d-flex justify-content-center">
+                <canvas id = "print_user_canvas"></canvas>
+            </div>
+            <div class = "pagebreak d-flex justify-content-center">
+                <canvas id = "print_blank_canvas"></canvas>                
+            </div>
+        </div>
+    </body>
+    <script type="text/javascript">
+//The appropriate page_height/page_width ratio to use depends on how much space is used by the margins/header/footer for however your browser prints web pages; the ratio here should be relatively close to 11/8.5 for a standard printer page
+var page_width = 770;
+var page_height = 1100;
+//default size of each grid square
+var square_length;
+
+//the width/height that will be used when drawing the image with respect to the page; will probably not match actual image height/width
+var image_draw_width;
+var image_draw_height;
+//if length > width, image will be printed as portrait; otherwise image will be printed as landscape
+var portrait;
+var user_image;
+
+var blank_canvas;
+var user_canvas; 
+var file_reader;
+
+function redraw(){
+    //clear the canvases
+    var user_ctx = user_canvas.getContext("2d");
+    user_ctx.clearRect( 0, 0, user_ctx.canvas.width, user_ctx.canvas.height);
+    var blank_ctx = blank_canvas.getContext("2d");
+    blank_ctx.clearRect(0, 0, blank_ctx.canvas.width, blank_ctx.canvas.height);
+    draw_picture();
+    draw_grid(user_canvas);
+    draw_grid(blank_canvas);
+    //draw "page" boundaries
+    user_ctx.beginPath();
+    user_ctx.rect(0, 0, page_width, page_height);
+    user_ctx.stroke();
+    blank_ctx.beginPath();
+    blank_ctx.rect(0, 0, page_width, page_height);
+    blank_ctx.stroke();
+}
+
+function updatePicture(){
+    //determine whether the picture should be printed in portrait or landscape
+    if(user_image.height > user_image.width){
+        portrait = true;
+        image_draw_height = user_image.height;
+        image_draw_width = user_image.width;
+    } else {
+        portrait = false;
+        //swap the height and width since the image is "rotated"
+        image_draw_height = user_image.width; 
+        image_draw_width = user_image.height;        
+    }
+    //if the height/width ratio of the image exceeds the height/width ratio of the page, the image will fill the length of the page
+    if(image_draw_height / image_draw_width > page_height/page_width){
+        image_draw_width = page_height / image_draw_height * image_draw_width;
+        image_draw_height = page_height;
+    //otherwise the image will fill the width of the page
+    } else {
+        image_draw_height = page_width / image_draw_width * image_draw_height;
+        image_draw_width = page_width;
+    }
+}
+
+function draw_picture(){
+    var user_ctx = user_canvas.getContext("2d");
+    //draw as portrait
+    if(portrait){
+        //scale to size of "page"
+        user_ctx.drawImage(user_image, 0, 0, user_image.width, user_image.height, 0, 0, image_draw_width, image_draw_height);
+    //draw as landscape
+    } else {
+        //rotate image, scale to size of "page"
+        user_ctx.translate(0, image_draw_height);
+        user_ctx.rotate(270 * Math.PI / 180);
+        user_ctx.drawImage(user_image, 0, 0, user_image.width, user_image.height, 0, 0, image_draw_height, image_draw_width);
+        user_ctx.setTransform(1, 0, 0, 1, 0, 0);   
+    } 
+}
+
+function draw_grid(canvas){
+    var ctx = canvas.getContext("2d");
+    ctx.strokeStyle = '#000000';
+    for(var k = 0; k < page_height; k = k + square_length){
+        ctx.beginPath();
+        ctx.moveTo(0, k);
+        ctx.lineTo(page_width, k);
+        ctx.stroke();
+    }
+    for(var j = 0; j < page_width; j = j + square_length){
+        ctx.beginPath();
+        ctx.moveTo(j, 0);
+        ctx.lineTo(j, page_height);
+        ctx.stroke();
+    }
+}
+
+function prepare_for_print(){
+    print_blank_canvas = $("#print_blank_canvas").get(0);
+    print_user_canvas = $("#print_user_canvas").get(0);
+    //clear the hidden canvases
+    var print_user_ctx = print_user_canvas.getContext("2d");
+    print_user_ctx.clearRect( 0, 0, print_user_ctx.canvas.width, print_user_ctx.canvas.height);
+    var print_blank_ctx = print_blank_canvas.getContext("2d");
+    print_blank_ctx.clearRect(0, 0, print_blank_ctx.canvas.width, print_blank_ctx.canvas.height);
+    //copy the canvases
+    print_user_ctx.drawImage(user_canvas, 0, 0);
+    print_blank_ctx.drawImage(blank_canvas, 0, 0);
+}
+
+function resize_canvases(){
+    var canvases = [user_canvas, blank_canvas, print_user_canvas, print_blank_canvas];
+    for (var k = 0; k < canvases.length; k++){
+        canvases[k].width = page_width;
+        canvases[k].height = page_height;
+    }
+}
+
+$("#user_picture").change(function( event ) {
+    file_reader.readAsDataURL(this.files[0]);
+});
+
+$("#gridSizeControlRange").on('input', function() {
+    $("#gridSizeNumber").html($(this).val());
+});
+
+$("#pageRatioControlRange").on('input', function() {
+    $("#pageRatioNumber").html($(this).val());
+});
+
+$("#gridSizeControlRange").on('change', function() {
+    square_length = parseInt($(this).val());
+    redraw();
+});
+
+$("#pageRatioControlRange").on('change', function() {
+    // console.log(page_width, page_height);
+    var page_ratio = parseFloat($(this).val());
+    page_width = 800;
+    page_height = Math.floor(page_ratio * page_width);
+    resize_canvases();
+    updatePicture();
+    redraw();
+    console.log("changed");
+});
+
+$("#printButton").on('click', function() {
+    prepare_for_print();
+    print();
+});
+
+//set values for the slider
+$(document).ready(function() {
+    $("#gridSizeControlRange").attr({
+       "max" : page_width / 2,
+       "min" : 20,
+       "value" : page_width / 4,
+    });
+    $("#pageRatioControlRange").attr({
+       "max" : 1.5,
+       "min" : 1,
+       "value" : 1.43,
+    });
+    $("#gridSizeNumber").html($("#gridSizeControlRange").val());
+    $("#pageRatioNumber").html($("#pageRatioControlRange").val());
+    user_image = new Image();
+    blank_canvas = $("#blank_canvas").get(0);
+    user_canvas = $("#user_canvas").get(0);
+    file_reader = new FileReader();
+
+    resize_canvases();
+
+    square_length = parseInt($("#gridSizeControlRange").val());
+
+    //update the picture and draw everything again whenever a new picture is uploaded
+    user_image.onload = function() {
+        updatePicture();
+        redraw();      
+    }
+
+    //set the picture to whatever file the user has uploaded
+    file_reader.onload = function() {
+        user_image.src = file_reader.result;
+    }
+
+    //set default picture
+    user_image.src = "assets/stravinsky.png";
+});
+    </script>
+</html>
