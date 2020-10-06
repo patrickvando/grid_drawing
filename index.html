@@ -78,6 +78,13 @@ var blank_canvas;
 var user_canvas; 
 var file_reader;
 
+//Mouse variables for controlling grid movement
+var mouse_x;
+var mouse_y;
+var mouse_down;
+var dx = 0;
+var dy = 0;
+
 function redraw(){
     //clear the canvases
     var user_ctx = user_canvas.getContext("2d");
@@ -138,13 +145,14 @@ function draw_picture(){
 function draw_grid(canvas){
     var ctx = canvas.getContext("2d");
     ctx.strokeStyle = '#000000';
-    for(var k = 0; k < page_height; k = k + square_length){
+    console.log(dx, dy);
+    for(var k = dy; k < page_height; k = k + square_length){
         ctx.beginPath();
         ctx.moveTo(0, k);
         ctx.lineTo(page_width, k);
         ctx.stroke();
     }
-    for(var j = 0; j < page_width; j = j + square_length){
+    for(var j = dx; j < page_width; j = j + square_length){
         ctx.beginPath();
         ctx.moveTo(j, 0);
         ctx.lineTo(j, page_height);
@@ -172,6 +180,29 @@ function resize_canvases(){
         canvases[k].height = page_height;
     }
 }
+$("#user_canvas").on('mousedown', function(event){
+    mouse_x = event.clientX - dx;
+    mouse_y = event.clientY - dy;
+    mouse_down = true;
+    console.log(dx, dy);
+});
+
+$("#user_canvas").on('mousemove', function(event){
+    if(mouse_down){
+        dx = (event.clientX - mouse_x) % square_length;
+        dy = (event.clientY - mouse_y) % square_length;
+        redraw();
+    }
+});
+
+$("#user_canvas").on('mouseleave', function(event){
+    mouse_down = false;
+});
+
+$("#user_canvas").on('mouseup', function(event){
+    console.log(dx, dy);   
+    mouse_down = false;
+});
 
 $("#user_picture").change(function( event ) {
     file_reader.readAsDataURL(this.files[0]);
@@ -185,7 +216,7 @@ $("#pageRatioControlRange").on('input', function() {
     $("#pageRatioNumber").html($(this).val());
 });
 
-$("#gridSizeControlRange").on('change', function() {
+$("#gridSizeControlRange").on('input', function() {
     square_length = parseInt($(this).val());
     redraw();
 });
@@ -239,9 +270,8 @@ $(document).ready(function() {
     file_reader.onload = function() {
         user_image.src = file_reader.result;
     }
-
     //set default picture
-    user_image.src = "stravinsky.png";
+    user_image.src = "assets/stravinsky.png";
 });
     </script>
 </html>
