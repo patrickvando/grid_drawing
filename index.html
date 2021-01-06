@@ -146,13 +146,15 @@ function draw_grid(canvas){
     var ctx = canvas.getContext("2d");
     ctx.strokeStyle = '#000000';
     console.log(dx, dy);
-    for(var k = dy; k < page_height; k = k + square_length){
+    var y_offset = dy % square_length;
+    for(var k = y_offset; k < page_height; k = k + square_length){
         ctx.beginPath();
         ctx.moveTo(0, k);
         ctx.lineTo(page_width, k);
         ctx.stroke();
     }
-    for(var j = dx; j < page_width; j = j + square_length){
+    var x_offset = dx % square_length;
+    for(var j = x_offset; j < page_width; j = j + square_length){
         ctx.beginPath();
         ctx.moveTo(j, 0);
         ctx.lineTo(j, page_height);
