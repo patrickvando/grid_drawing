@@ -145,7 +145,6 @@ function draw_picture(){
 function draw_grid(canvas){
     var ctx = canvas.getContext("2d");
     ctx.strokeStyle = '#000000';
-    console.log(dx, dy);
     var y_offset = dy % square_length;
     for(var k = y_offset; k < page_height; k = k + square_length){
         ctx.beginPath();
@@ -186,7 +185,6 @@ $("#user_canvas").on('mousedown', function(event){
     mouse_x = event.clientX - dx;
     mouse_y = event.clientY - dy;
     mouse_down = true;
-    console.log(dx, dy);
 });
 
 $("#user_canvas").on('mousemove', function(event){
@@ -201,8 +199,7 @@ $("#user_canvas").on('mouseleave', function(event){
     mouse_down = false;
 });
 
-$("#user_canvas").on('mouseup', function(event){
-    console.log(dx, dy);   
+$("html").on('mouseup', function(event){
     mouse_down = false;
 });
 
@@ -224,14 +221,12 @@ $("#gridSizeControlRange").on('input', function() {
 });
 
 $("#pageRatioControlRange").on('change', function() {
-    // console.log(page_width, page_height);
     var page_ratio = parseFloat($(this).val());
     page_width = 800;
     page_height = Math.floor(page_ratio * page_width);
     resize_canvases();
     updatePicture();
     redraw();
-    console.log("changed");
 });
 
 $("#printButton").on('click', function() {
